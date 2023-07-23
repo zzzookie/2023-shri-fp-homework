@@ -1,5 +1,5 @@
 import Api from '../tools/api';
-import { tap, pipe, curry, allPass, gt, lt, equals, pipeWith, ifElse } from 'ramda'
+import { tap, pipe, curry, allPass, gt, lt, equals, pipeWith, ifElse, tryCatch, always } from 'ramda'
 
 const api = new Api();
 
@@ -20,17 +20,21 @@ const getSquare = async value => value ** 2;
 const getRemainder = async value => value % 3;
 
 const getApiResult = api => async value => {
-  const apiAnswer = await api(value)
-  const answer = await apiAnswer
-  return answer.result
-  // function retry() {
-  //   try {
-  //     result = answer.result
-  //     return answer
-  //   } catch (error) {
-      
-  //   }
-  // }
+  const retriesMax = 3
+  let retriesCount = 0;
+
+  while (retriesCount < retriesMax) {
+    try {
+      const apiAnswer = await api(value)
+      const answer = await apiAnswer
+      return answer.result
+    } catch (error) {
+      retriesCount += 1
+      if (retriesCount >= retriesMax) {
+        throw error;
+      }
+    }
+  }
 }
 
 const queryBinaryValue = async number => await api.get('https://api.tech/numbers/base', { number, from: 10, to: 2 })
@@ -41,7 +45,7 @@ const getAnimalName = getApiResult(queryAnimalName)
 
 const processSequence = async ({value, writeLog, handleSuccess, handleError}) => {
   const log = curry(tap)(writeLog)
-  const error = curry(tap)(handleError)
+  const showError = curry(tap)(handleError)
 
   const pipeAsyncLogged = (fns) => {
     return pipeWith(async (f, prevRes) => {
@@ -51,22 +55,27 @@ const processSequence = async ({value, writeLog, handleSuccess, handleError}) =>
     })(fns)
   };
 
-  const getAnimal = pipeAsyncLogged([
-    round,
-    getBinaryValue,
-    lengthCount,
-    getSquare,
-    getRemainder,
-    getAnimalName,
-    handleSuccess
-  ])
-  
+  const getAnimal = value => {
+    tryCatch(
+      pipeAsyncLogged([
+        round,
+        getBinaryValue,
+        lengthCount,
+        getSquare,
+        getRemainder,
+        getAnimalName,
+        handleSuccess,
+      ])(value),
+      always(handleError)
+    )
+  }
+    
   pipe(
     log,
     validate,
     ifElse(
       equals('ValidationError'),
-      error,
+      showError,
       getAnimal
     )
   )(value)

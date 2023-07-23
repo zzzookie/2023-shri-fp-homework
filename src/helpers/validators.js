@@ -1,18 +1,4 @@
-/**
- * @file Домашка по FP ч. 1
- *
- * Основная задача — написать самому, или найти в FP библиотеках функции anyPass/allPass
- * Эти функции/их аналоги есть и в ramda и в lodash
- *
- * allPass — принимает массив функций-предикатов, и возвращает функцию-предикат, которая
- * вернет true для заданного списка аргументов, если каждый из предоставленных предикатов
- * удовлетворяет этим аргументам (возвращает true)
- *
- * anyPass — то же самое, только удовлетворять значению может единственная функция-предикат из массива.
- *
- * Если какие либо функции написаны руками (без использования библиотек) это не является ошибкой
- */
-import { allPass, anyPass, prop } from 'ramda'
+import { allPass, anyPass, applySpec, count, curry, equals, flip, gt, gte, lte, not, pipe, prop, propEq, useWith, values } from 'ramda'
 
 const isSameColor = color => shapesStrOrObj => {
   const shapes = typeof shapesStrOrObj === 'string'
@@ -21,12 +7,14 @@ const isSameColor = color => shapesStrOrObj => {
   return shapes.every(shape => shape === color)
 }
 
-const countColor = color => shapesObj => Object.values(shapesObj).filter(shape => shape === color).length
+// const countColor = color => shapesObj => Object.values(shapesObj).filter(shape => shape === color).length
 
-const getTriangle = prop('triangle')
-const getCircle = prop('circle')
-const getSquare = prop('square')
-const getStar = prop('star')
+// const all = Object.values
+
+const triangle = prop('triangle')
+const square = prop('square')
+const circle = prop('circle')
+const star = prop('star')
 
 const isWhite = isSameColor('white')
 const isOrange = isSameColor('orange')
@@ -34,38 +22,70 @@ const isGreen = isSameColor('green')
 const isBlue = isSameColor('blue') 
 const isRed = isSameColor('red')
 
-const countWhite = countColor('white')
-const countOrange = countColor('orange')
-const countGreen = countColor('green')
-const countBlue = countColor('blue') 
-const countRed = countColor('red')
+const lessOrEq = curry(flip(lte))
+const moreOrEq = curry(flip(gte))
+const eq = curry(equals)
+
+const countWhite = count(isWhite)
+const countOrange = count(isOrange)
+const countGreen = count(isGreen)
+const countBlue = count(isBlue)
+const countRed = count(isRed)
 
 // 1. Красная звезда, зеленый квадрат, все остальные белые.
-export const validateFieldN1 = ({ circle, square, triangle, star }) => isRed(star) && isGreen(square) && isWhite({triangle, circle})
+export const validateFieldN1 = allPass([
+  pipe(star, isRed),
+  pipe(square, isGreen),
+  pipe(triangle, isWhite),
+  pipe(circle, isWhite),
+])
 
 // 2. Как минимум две фигуры зеленые.
-export const validateFieldN2 = (figs) => countGreen(figs) >= 2;
+export const validateFieldN2 = pipe(values, countGreen, moreOrEq(2))
 
 // 3. Количество красных фигур равно кол-ву синих.
-export const validateFieldN3 = (figs) => countRed(figs) === countBlue(figs)
+export const validateFieldN3 = pipe(
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useWith(equals, [pipe(values, countRed), pipe(values, countBlue)]) // !!
+);
 
 // 4. Синий круг, красная звезда, оранжевый квадрат треугольник любого цвета
-export const validateFieldN4 = ({ circle, square, star }) => isBlue(circle) && isRed(star) && isOrange(square);
+export const validateFieldN4 = allPass([
+  pipe(square, isOrange),
+  pipe(circle, isBlue),
+  pipe(star, isRed),
+])
 
 // 5. Три фигуры одного любого цвета кроме белого (четыре фигуры одного цвета – это тоже true).
-export const validateFieldN5 = (figs) => Math.max(countGreen(figs), countRed(figs), countBlue(figs), countOrange(figs)) >= 3;
+// export const validateFieldN5 = (figs) => Math.max(countGreen(figs), countRed(figs), countBlue(figs), countOrange(figs)) >= 3;
+export const validateFieldN5 = anyPass([
+  pipe(values, countOrange, moreOrEq(3)),
+  pipe(values, countGreen, moreOrEq(3)),
+  pipe(values, countBlue, moreOrEq(3)),
+  pipe(values, countRed, moreOrEq(3)),
+])
 
 // 6. Ровно две зеленые фигуры (одна из зелёных – это треугольник), плюс одна красная. Четвёртая оставшаяся любого доступного цвета, но не нарушающая первые два условия
-export const validateFieldN6 = (figs) => countGreen(figs) === 2 && countRed(figs) === 1 && isGreen(figs.triangle)
+export const validateFieldN6 = allPass([
+  pipe(values, countRed, eq(1)),
+  pipe(values, countGreen, eq(2)),
+  pipe(triangle, isGreen),
+])
 
 // 7. Все фигуры оранжевые.
-export const validateFieldN7 = (figs) => isOrange(figs);
+export const validateFieldN7 = pipe(values, countOrange, moreOrEq(4))
 
 // 8. Не красная и не белая звезда, остальные – любого цвета.
-export const validateFieldN8 = ({ star }) => !(isRed(star) || isWhite(star));
+export const validateFieldN8 = allPass([
+  pipe(star, isRed, not),
+  pipe(star, isWhite, not),
+])
 
 // 9. Все фигуры зеленые.
-export const validateFieldN9 = (shapes) => isGreen(shapes);
+export const validateFieldN9 = pipe(values, countGreen, moreOrEq(4))
 
 // 10. Треугольник и квадрат одного цвета (не белого), остальные – любого цвета
-export const validateFieldN10 = ({ square, triangle }) => triangle === square && !isWhite(triangle);
+export const validateFieldN10 = v => {
+  return equals(v.triangle, v.square)
+}
+// pipe(triangle, isWhite, not),
