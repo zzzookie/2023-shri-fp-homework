@@ -1,36 +1,33 @@
-import { allPass, anyPass, applySpec, count, curry, equals, flip, gt, gte, lte, not, pipe, prop, propEq, useWith, values } from 'ramda'
+import { allPass, anyPass, count, curry, equals, flip, gte, not, pipe, prop, props, values } from 'ramda'
 
-const isSameColor = color => shapesStrOrObj => {
-  const shapes = typeof shapesStrOrObj === 'string'
-    ? [shapesStrOrObj]
-    : Object.values(shapesStrOrObj)
-  return shapes.every(shape => shape === color)
-}
-
-// const countColor = color => shapesObj => Object.values(shapesObj).filter(shape => shape === color).length
-
-// const all = Object.values
+// const isSameColor = color => shapesStrOrObj => {
+//   const shapes = typeof shapesStrOrObj === 'string'
+//     ? [shapesStrOrObj]
+//     : Object.values(shapesStrOrObj)
+//   return shapes.every(shape => shape === color)
+// }
 
 const triangle = prop('triangle')
 const square = prop('square')
 const circle = prop('circle')
 const star = prop('star')
 
-const isWhite = isSameColor('white')
-const isOrange = isSameColor('orange')
-const isGreen = isSameColor('green')
-const isBlue = isSameColor('blue') 
-const isRed = isSameColor('red')
-
-const lessOrEq = curry(flip(lte))
-const moreOrEq = curry(flip(gte))
-const eq = curry(equals)
+const isWhite = equals('white')
+const isOrange = equals('orange')
+const isGreen = equals('green')
+const isBlue = equals('blue') 
+const isRed = equals('red')
 
 const countWhite = count(isWhite)
 const countOrange = count(isOrange)
 const countGreen = count(isGreen)
 const countBlue = count(isBlue)
 const countRed = count(isRed)
+const countFew = colors => values => colors.map(color => values.filter(v => v === color).length)
+
+const moreOrEq = curry(flip(gte))
+const eq = curry(equals)
+const compareArray = arr => arr.every(el => el === arr[0])
 
 // 1. Красная звезда, зеленый квадрат, все остальные белые.
 export const validateFieldN1 = allPass([
@@ -44,10 +41,7 @@ export const validateFieldN1 = allPass([
 export const validateFieldN2 = pipe(values, countGreen, moreOrEq(2))
 
 // 3. Количество красных фигур равно кол-ву синих.
-export const validateFieldN3 = pipe(
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useWith(equals, [pipe(values, countRed), pipe(values, countBlue)]) // !!
-);
+export const validateFieldN3 = pipe(values, countFew(['red', 'blue']), compareArray)
 
 // 4. Синий круг, красная звезда, оранжевый квадрат треугольник любого цвета
 export const validateFieldN4 = allPass([
@@ -85,7 +79,7 @@ export const validateFieldN8 = allPass([
 export const validateFieldN9 = pipe(values, countGreen, moreOrEq(4))
 
 // 10. Треугольник и квадрат одного цвета (не белого), остальные – любого цвета
-export const validateFieldN10 = v => {
-  return equals(v.triangle, v.square)
-}
-// pipe(triangle, isWhite, not),
+export const validateFieldN10 = allPass([
+  pipe(props(['triangle', 'square']), compareArray),
+  pipe(triangle, isWhite, not)
+])
